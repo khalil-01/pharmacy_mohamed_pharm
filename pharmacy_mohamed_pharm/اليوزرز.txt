@@ -1,0 +1,5 @@
+admin | Admin@123
+stock1 | Stock1@123
+seller1 | Seller1@123
+seller2 | Seller2@123
+seller3 | Seller3@123

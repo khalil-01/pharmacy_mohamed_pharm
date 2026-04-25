@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>صيدلية محمد فارم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css?v=20260425-4">
+</head>
+<body>
+
+<header id="appShellHeader" class="app-shell-header hidden">
+  <div class="app-shell-brand">
+    <span class="shell-eyebrow">نظام إدارة الصيدلية</span>
+    <h1 data-pharmacy-name>صيدلية محمد فارم</h1>
+    <p id="headerContextText">متابعة الفواتير والديون والتحويلات والمزامنة من شاشة واحدة.</p>
+  </div>
+  <div class="app-shell-actions">
+    <div class="shell-status-card">
+      <span>آخر مزامنة: <strong id="headerLastSyncAt">-</strong></span>
+      <span>عمليات معلّقة: <strong id="headerPendingOperations">0</strong></span>
+      <span>إشعارات الفرع: <strong id="headerNotificationsCount">0</strong></span>
+    </div>
+    <button id="headerNotificationsButton" class="btn btn-light" type="button" onclick="showPage('notificationsPage')">الإشعارات</button>
+    <button id="headerSyncButton" class="btn btn-primary" type="button" onclick="syncNow()">مزامنة</button>
+  </div>
+</header>
+
+<section id="globalNotificationBanner" class="notification-banner hidden"></section>
+
+<main id="dashboardPage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="brand">لوحة التحكم</div>
+      <p class="topbar-note">متابعة حالة الفواتير الجاهزة، الديون، والتحويلات التي تنتظر التحقق.</p>
+    </div>
+    <div class="quick-links">
+      <div class="branch-badge">الفرع: <span class="current-branch">جميع الفروع</span></div>
+      <div class="role-badge">الدور: <span class="current-role">مدير</span></div>
+      <div class="role-badge">المستخدم: <span class="current-user">admin</span></div>
+      <button class="btn btn-light" type="button" onclick="logout()">تبديل المستخدم</button>
+    </div>
+  </div>
+
+  <section class="grid grid-4">
+    <div class="card stat-card"><h3>مبيعات اليوم</h3><div class="value" id="dashboardSalesValue">₪ 0</div></div>
+    <div class="card stat-card"><h3>الربح المرحّل</h3><div class="value" id="dashboardProfitValue">₪ 0</div></div>
+    <div class="card stat-card"><h3>الفواتير الجاهزة</h3><div class="value" id="dashboardInvoicesValue">0</div></div>
+    <div class="card stat-card"><h3>الديون الحالية</h3><div class="value" id="dashboardDebtsValue">₪ 0</div></div>
+  </section>
+
+  <section class="menu-grid">
+    <div class="menu-card manager-only" onclick="showPage('salesPage')"><div class="icon">🧾</div><div class="title">المبيعات</div></div>
+    <div class="menu-card" onclick="showPage('myInvoicesPage')"><div class="icon">📑</div><div class="title">الفواتير</div></div>
+    <div class="menu-card" onclick="showPage('debtsPage')"><div class="icon">💰</div><div class="title">الديون والتحصيل</div></div>
+    <div class="menu-card manager-only" onclick="showPage('verificationPage')"><div class="icon">✅</div><div class="title">التحقق من الحوالات</div></div>
+    <div class="menu-card stock-only" onclick="showPage('stockPage')"><div class="icon">📦</div><div class="title">المخزون</div></div>
+    <div class="menu-card stock-only" onclick="showPage('productsPage')"><div class="icon">💊</div><div class="title">الأدوية</div></div>
+    <div class="menu-card stock-only" onclick="showPage('stockEntryPage')"><div class="icon">📋</div><div class="title">طلبيات المخزن</div></div>
+    <div class="menu-card manager-only" onclick="showPage('reportsPage')"><div class="icon">📈</div><div class="title">التقارير</div></div>
+    <div class="menu-card manager-only" onclick="showPage('usersPage')"><div class="icon">👤</div><div class="title">المستخدمون</div></div>
+    <div class="menu-card manager-only" onclick="showPage('branchesPage')"><div class="icon">🏬</div><div class="title">الفروع</div></div>
+    <div class="menu-card manager-only" onclick="showPage('settingsPage')"><div class="icon">⚙️</div><div class="title">الإعدادات</div></div>
+  </section>
+</main>
+
+<main id="salesPage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="brand">صفحة المبيعات</div>
+      <p class="topbar-note">اختر اسم الزبون وطريقة الدفع ثم أضف الأدوية. الدفع بالحوالة يُرسل مباشرة إلى شاشة التحقق.</p>
+    </div>
+    <div class="quick-links">
+      <span class="role-badge">الدور: <span class="current-role">بائع</span></span>
+      <span class="branch-badge">الفرع: <span class="current-branch">الشاطئ</span></span>
+      <span class="branch-badge manager-only">جهة البيع: <span id="currentSaleScope">المخزن المركزي</span></span>
+      <span class="role-badge">المستخدم: <span class="current-user">seller1</span></span>
+      <button id="salesInvoicesButton" class="btn btn-light" type="button" onclick="showPage('myInvoicesPage')">فواتير الفرع</button>
+      <button class="btn btn-light" type="button" onclick="showPage('productsPage')">الأدوية</button>
+      <button class="btn btn-light" type="button" onclick="showPage('debtsPage')">الديون</button>
+      <button class="btn btn-light manager-only" type="button" onclick="showPage('verificationPage')">التحقق</button>
+      <button class="btn btn-light manager-only" type="button" onclick="showPage('dashboardPage')">الرئيسية</button>
+      <button class="btn btn-light" type="button" onclick="logout()">تبديل المستخدم</button>
+    </div>
+  </div>
+
+  <div class="sale-layout">
+    <div class="card">
+      <div class="section-title">إعداد الفاتورة</div>
+      <div class="form-grid">
+        <div class="field manager-only">
+          <label for="saleScopeTypeSelect">مصدر البيع</label>
+          <select id="saleScopeTypeSelect">
+            <option value="warehouse">المخزن المركزي</option>
+            <option value="branch">فرع محدد</option>
+          </select>
+        </div>
+        <div id="saleScopeBranchField" class="field manager-only hidden">
+          <label for="saleScopeBranchSelect">اختر الفرع</label>
+          <select id="saleScopeBranchSelect"></select>
+        </div>
+        <div class="field">
+          <label for="saleCustomerNameInput">اسم صاحب الفاتورة</label>
+          <input id="saleCustomerNameInput" type="text" placeholder="مثال: محمد أحمد">
+        </div>
+        <div class="field">
+          <label for="saleCustomerPhoneInput">رقم الهاتف</label>
+          <input id="saleCustomerPhoneInput" type="text" placeholder="اختياري">
+        </div>
+        <div class="field">
+          <label for="salePaymentMethodSelect">طريقة الدفع</label>
+          <select id="salePaymentMethodSelect">
+            <option value="cash">نقدي</option>
+            <option value="debt">دين</option>
+            <option value="transfer">حوالة / تحويل</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="saleProductSearchInput">بحث عن الدواء</label>
+          <input id="saleProductSearchInput" type="search" placeholder="اكتب اسم الدواء للبحث">
+        </div>
+        <div class="field">
+          <label for="saleProductSelect">اسم الدواء</label>
+          <select id="saleProductSelect"></select>
+        </div>
+        <div class="field">
+          <label for="saleTypeSelect">نوع البيع</label>
+          <select id="saleTypeSelect">
+            <option>حبة</option>
+            <option>شريط</option>
+            <option>علبة</option>
+            <option>إبرة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="saleQuantityInput">الكمية</label>
+          <input type="number" id="saleQuantityInput" value="1" min="1">
+        </div>
+        <div class="field">
+          <label for="salePriceInput">سعر بيع الوحدة</label>
+          <input type="text" id="salePriceInput" inputmode="decimal" placeholder="مثال: 7 أو 8">
+        </div>
+        <div class="field manager-only">
+          <label for="salePurchasePriceInput">سعر الشراء</label>
+          <input type="text" id="salePurchasePriceInput" readonly>
+        </div>
+        <div class="field manager-only">
+          <label for="saleProfitInput">ربح السطر</label>
+          <input type="text" id="saleProfitInput" readonly>
+        </div>
+        <div class="field">
+          <label for="saleLineTotalInput">إجمالي السطر</label>
+          <input type="text" id="saleLineTotalInput" readonly>
+        </div>
+      </div>
+      <div class="info-strip">
+        <span class="info-chip">الحوالة تنتظر تأكيدًا قبل أن تصبح فاتورة جاهزة</span>
+        <span class="info-chip">الدين يحتاج اسم زبون حتى يسهل البحث والسداد لاحقًا</span>
+      </div>
+      <p id="managerSaleScopeNote" class="page-note manager-only">المدير يمكنه البيع من المخزن المركزي أو من أي فرع يحدده من هذه الشاشة.</p>
+      <button class="btn btn-primary" type="button" onclick="addCurrentSaleItem()">إضافة إلى الفاتورة</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">الفاتورة الحالية</div>
+      <div class="summary-grid">
+        <div class="summary-tile">
+          <span>اسم الزبون</span>
+          <strong id="currentInvoiceCustomerValue">-</strong>
+        </div>
+        <div class="summary-tile">
+          <span>طريقة الدفع</span>
+          <strong id="currentInvoicePaymentValue">نقدي</strong>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>الدواء</th><th>النوع</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>حذف</th></tr>
+        </thead>
+        <tbody id="currentInvoiceItemsBody"></tbody>
+      </table>
+      <div class="total-box">
+        <div class="total-line"><span>عدد الأصناف</span><strong id="currentInvoiceItemsCount">0</strong></div>
+        <div class="total-line"><span>إجمالي الفاتورة</span><strong id="currentInvoiceTotalValue">₪ 0</strong></div>
+        <div class="total-line manager-only"><span>إجمالي الربح</span><strong id="currentInvoiceProfitValue">₪ 0</strong></div>
+      </div>
+      <p id="saleSaveMessage" class="page-note hidden"></p>
+      <p class="page-note">احفظ الفاتورة بعد إنهاء جميع الأصناف. فواتير الحوالة ستظهر في شاشة التحقق حتى يتم اعتمادها.</p>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" onclick="saveCurrentSaleInvoice()">حفظ الفاتورة</button>
+        <button class="btn btn-success" type="button" onclick="showPage('invoicePage')">عرض آخر فاتورة</button>
+        <button class="btn btn-warning" type="button" onclick="clearCurrentSaleInvoice()">تفريغ الفاتورة</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-nav seller-only">
+    <button type="button" onclick="showPage('salesPage')">المبيعات</button>
+    <button type="button" onclick="showPage('productsPage')">الأدوية</button>
+    <button type="button" onclick="showPage('myInvoicesPage')">الفواتير</button>
+    <button type="button" onclick="showPage('debtsPage')">الديون</button>
+    <button type="button" onclick="logout()">خروج</button>
+  </div>
+</main>
+
+<main id="myInvoicesPage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div id="myInvoicesPageTitle" class="brand">فواتير الفرع</div>
+      <p class="topbar-note">ابحث باسم الزبون أو رقم الفاتورة لتصل إلى أي فاتورة دين أو دفع بسرعة.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage(getHomePage())">رجوع</button>
+    </div>
+  </div>
+  <div class="card toolbar-card">
+    <div class="field">
+      <label for="invoiceSearchInput">بحث عن فاتورة</label>
+      <input id="invoiceSearchInput" type="search" placeholder="اسم الزبون، رقم الفاتورة، الهاتف">
+    </div>
+  </div>
+  <div id="myInvoicesList" class="invoice-list"></div>
+</main>
+
+<main id="notificationsPage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="brand">إشعارات الفروع</div>
+      <p class="topbar-note">أي توريد داخلي مكتمل للفرع يظهر هنا فورًا حتى لا يفوت أحد من الفريق.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="markAllVisibleNotificationsRead()">تحديد الكل كمقروء</button>
+      <button class="btn btn-light" type="button" onclick="showPage(getHomePage())">رجوع</button>
+    </div>
+  </div>
+  <div id="notificationsList" class="invoice-list"></div>
+</main>
+
+<main id="verificationPage" class="app hidden manager-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">واجهة التحقق</div>
+      <p class="topbar-note">كل حوالة جديدة تبقى هنا حتى تتأكد من وصولها، وبعدها تتحول إلى فاتورة جاهزة.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <div class="card toolbar-card">
+    <div class="field">
+      <label for="verificationSearchInput">بحث داخل التحويلات</label>
+      <input id="verificationSearchInput" type="search" placeholder="اسم الزبون أو رقم الفاتورة أو البائع">
+    </div>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>رقم الفاتورة</th><th>الزبون</th><th>الفرع</th><th>الموظف</th><th>الإجمالي</th><th>التاريخ</th><th>الحالة</th><th>إجراء</th></tr>
+      </thead>
+      <tbody id="verificationTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<main id="invoicePage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="brand">تفاصيل الفاتورة</div>
+      <p class="topbar-note">عرض كامل لبيانات الزبون والأصناف وطريقة الدفع وحالة الفاتورة.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="goBackFromInvoicePage()">رجوع</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="grid grid-3 details-grid">
+      <div><strong>رقم الفاتورة:</strong> <span id="invoiceNumberValue">-</span></div>
+      <div><strong>الفرع:</strong> <span id="invoiceBranchValue">-</span></div>
+      <div><strong>الموظف:</strong> <span id="invoiceUserValue">-</span></div>
+      <div><strong>الزبون:</strong> <span id="invoiceCustomerValue">-</span></div>
+      <div><strong>الهاتف:</strong> <span id="invoicePhoneValue">-</span></div>
+      <div><strong>التاريخ:</strong> <span id="invoiceDateValue">-</span></div>
+    </div>
+    <div class="detail-status-row">
+      <div class="total-line"><span>حالة الفاتورة</span><span id="invoiceTypeValue" class="tag tag-paid">-</span></div>
+      <div class="total-line"><span>طريقة الدفع</span><strong id="invoicePaymentMethodValue">-</strong></div>
+    </div>
+    <p id="invoiceStatusNote" class="page-note"></p>
+    <table>
+      <thead><tr><th>الدواء</th><th>نوع البيع</th><th>الكمية</th><th>سعر البيع</th><th class="manager-only">الربح</th></tr></thead>
+      <tbody id="invoiceDetailsBody"></tbody>
+    </table>
+    <div class="total-box">
+      <div class="total-line"><span>إجمالي الفاتورة</span><strong id="invoiceTotalValue">₪ 0</strong></div>
+      <div class="total-line manager-only"><span>إجمالي الربح</span><strong id="invoiceProfitValue">₪ 0</strong></div>
+    </div>
+  </div>
+</main>
+
+<main id="stockPage" class="app hidden stock-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">المخزون</div>
+      <p class="topbar-note">متابعة الكميات المتوفرة وأسعار الشراء والجملة والبيع وتاريخ الانتهاء من شاشة واحدة.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage(getHomePage())">رجوع</button>
+    </div>
+  </div>
+  <div class="card toolbar-card">
+    <div class="field">
+      <label for="stockSearchInput">بحث داخل المخزون</label>
+      <input id="stockSearchInput" type="search" placeholder="اسم الدواء أو الصنف أو تاريخ الانتهاء">
+    </div>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr><th>الدواء</th><th>الكمية</th><th>سعر الشراء</th><th>سعر الجملة</th><th>سعر البيع</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead>
+      <tbody id="stockTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<main id="productsPage" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="brand">الأدوية والأصناف</div>
+      <p id="productsPageNote" class="topbar-note">واجهة مرتبة لقراءة الأدوية الموجودة والبحث عنها حسب الاسم أو الصنف.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage(getHomePage())">رجوع</button>
+    </div>
+  </div>
+  <div class="card toolbar-card">
+    <div class="field">
+      <label for="productsSearchInput">بحث عن دواء</label>
+      <input id="productsSearchInput" type="search" placeholder="اسم الدواء أو الصنف">
+    </div>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr id="productsTableHeadRow"><th>الدواء</th><th>الصنف</th><th>شراء</th><th>جملة</th><th>بيع</th><th>المخزون</th><th>تاريخ الانتهاء</th></tr></thead>
+      <tbody id="productsTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<main id="stockEntryPage" class="app hidden stock-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">نظام طلبيات المخزن</div>
+      <p class="topbar-note">أنشئ طلبية للفروع أو طلبية جملة خارجية، ثم تابع حالتها من التحضير حتى التسليم.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <section class="grid grid-4">
+    <div class="card stat-card"><h3>طلبات قيد التحضير</h3><div class="value" id="warehouseOrdersPendingCount">0</div></div>
+    <div class="card stat-card"><h3>طلبيات الفروع</h3><div class="value" id="warehouseOrdersBranchCount">0</div></div>
+    <div class="card stat-card"><h3>طلبيات الجملة</h3><div class="value" id="warehouseOrdersWholesaleCount">0</div></div>
+    <div class="card stat-card"><h3>طلبات مكتملة</h3><div class="value" id="warehouseOrdersCompletedCount">0</div></div>
+  </section>
+
+  <div class="sale-layout" style="margin-top:16px;">
+    <div class="card">
+      <div class="section-title">إنشاء طلبية جديدة</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="stockEntryDestinationTypeSelect">نوع الطلبية</label>
+          <select id="stockEntryDestinationTypeSelect">
+            <option value="branch">طلبية فرع</option>
+            <option value="wholesale">طلبية جملة خارجية</option>
+          </select>
+        </div>
+        <div id="stockEntryDestinationField" class="field">
+          <label for="stockEntryDestinationSelect">الجهة</label>
+          <select id="stockEntryDestinationSelect"></select>
+        </div>
+        <div id="wholesaleCustomerField" class="field hidden">
+          <label for="stockOrderWholesaleCustomerInput">اسم العميل / المحل</label>
+          <input id="stockOrderWholesaleCustomerInput" type="text" placeholder="مثال: مستودع الشفاء">
+        </div>
+        <div id="wholesalePhoneField" class="field hidden">
+          <label for="stockOrderWholesalePhoneInput">رقم الهاتف</label>
+          <input id="stockOrderWholesalePhoneInput" type="text" placeholder="اختياري">
+        </div>
+        <div class="field">
+          <label for="stockOrderPrioritySelect">الأولوية</label>
+          <select id="stockOrderPrioritySelect">
+            <option value="normal">عادية</option>
+            <option value="urgent">مستعجلة</option>
+            <option value="scheduled">مجدولة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="stockOrderReferenceInput">رقم مرجع</label>
+          <input id="stockOrderReferenceInput" type="text" placeholder="اختياري">
+        </div>
+        <div class="field">
+          <label for="stockEntryCategorySelect">الصنف</label>
+          <select id="stockEntryCategorySelect"></select>
+        </div>
+        <div class="field">
+          <label for="stockEntryProductSearchInput">بحث عن الدواء</label>
+          <input id="stockEntryProductSearchInput" type="search" placeholder="اكتب اسم الدواء">
+        </div>
+        <div class="field">
+          <label for="stockEntryProductSelect">الدواء</label>
+          <select id="stockEntryProductSelect"></select>
+        </div>
+        <div class="field">
+          <label for="stockOrderUnitSelect">الوحدة</label>
+          <select id="stockOrderUnitSelect">
+            <option>علبة</option>
+            <option>شريط</option>
+            <option>حبة</option>
+            <option>إبرة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="stockOrderQuantityInput">الكمية</label>
+          <input id="stockOrderQuantityInput" type="number" value="1" min="1">
+        </div>
+        <div class="field">
+          <label for="stockOrderPriceInput">سعر الوحدة</label>
+          <input id="stockOrderPriceInput" type="text" placeholder="₪ 0.00" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="stockOrderExpiryDateInput">تاريخ الانتهاء</label>
+          <input id="stockOrderExpiryDateInput" type="date">
+        </div>
+        <div class="field" style="grid-column:1 / -1;">
+          <label for="stockOrderNotesInput">ملاحظات على الطلبية</label>
+          <input id="stockOrderNotesInput" type="text" placeholder="أي تعليمات أو ملاحظات خاصة">
+        </div>
+      </div>
+      <div class="info-strip">
+        <span class="info-chip">طلبية الفرع تظهر باسم الفرع وتُتابع داخليًا</span>
+        <span class="info-chip">طلبية الجملة الخارجية تحفظ باسم العميل ورقم هاتفه</span>
+      </div>
+      <button class="btn btn-primary" type="button" onclick="addCurrentWarehouseOrderItem()">إضافة صنف للطلبية</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">الطلبية الحالية</div>
+      <div class="summary-grid">
+        <div class="summary-tile">
+          <span>نوع الطلبية</span>
+          <strong id="currentWarehouseOrderTypeValue">طلبية فرع</strong>
+        </div>
+        <div class="summary-tile">
+          <span>الجهة</span>
+          <strong id="currentWarehouseOrderDestinationValue">-</strong>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>الدواء</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الانتهاء</th><th>الإجمالي</th><th>حذف</th></tr>
+        </thead>
+        <tbody id="currentWarehouseOrderItemsBody"></tbody>
+      </table>
+      <div class="total-box">
+        <div class="total-line"><span>عدد الأصناف</span><strong id="currentWarehouseOrderItemsCount">0</strong></div>
+        <div class="total-line"><span>إجمالي الطلبية</span><strong id="currentWarehouseOrderTotalValue">₪ 0</strong></div>
+      </div>
+      <p id="stockOrderSaveMessage" class="page-note hidden"></p>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" onclick="saveCurrentWarehouseOrder()">حفظ الطلبية</button>
+        <button class="btn btn-warning" type="button" onclick="clearCurrentWarehouseOrder()">تفريغ الطلبية</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="section-title">قائمة الطلبيات</div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="stockOrdersSearchInput">بحث عن طلبية</label>
+        <input id="stockOrdersSearchInput" type="search" placeholder="رقم الطلبية أو الفرع أو عميل الجملة">
+      </div>
+      <div class="field">
+        <label for="stockOrdersStatusFilter">حالة الطلبية</label>
+        <select id="stockOrdersStatusFilter">
+          <option value="all">كل الحالات</option>
+          <option value="draft">قيد التحضير</option>
+          <option value="processing">جارٍ التجهيز</option>
+          <option value="completed">تم التسليم</option>
+        </select>
+      </div>
+    </div>
+    <div id="warehouseOrdersList" class="invoice-list" style="margin-top:16px;"></div>
+  </div>
+</main>
+
+<main id="reportsPage" class="app hidden manager-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">التقارير</div>
+      <p class="topbar-note">الأرقام هنا تعتمد فقط على الفواتير الجاهزة، بينما الحوالات المعلقة تبقى خارج الحساب حتى يتم اعتمادها.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <section class="grid grid-4">
+    <div class="card stat-card"><h3>إجمالي اليوم</h3><div class="value" id="reportsSalesValue">₪ 0</div></div>
+    <div class="card stat-card"><h3>إجمالي الربح</h3><div class="value" id="reportsProfitValue">₪ 0</div></div>
+    <div class="card stat-card"><h3>إجمالي الديون</h3><div class="value" id="reportsDebtsValue">₪ 0</div></div>
+    <div class="card stat-card"><h3>عدد الفواتير</h3><div class="value" id="reportsInvoicesValue">0</div></div>
+  </section>
+</main>
+
+<main id="usersPage" class="app hidden manager-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">المستخدمون</div>
+      <p class="topbar-note">القائمة جاهزة، وإضافة مستخدمين جدد يمكن أن نكملها لاحقًا على نفس البنية.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>الفرع</th></tr></thead>
+      <tbody id="usersTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<main id="branchesPage" class="app hidden manager-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">الفروع</div>
+      <p class="topbar-note">المدير يرى كل فواتير الفروع، بينما كل فرع يرى فواتيره الخاصة للبحث عن ديون أو مراجعة مبيعاته.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">قائمة الفروع</div>
+    <table>
+      <thead><tr><th>الفرع</th><th>العنوان</th><th>الحالة</th><th>عدد البائعين</th><th>عدد الفواتير</th></tr></thead>
+      <tbody id="branchesTableBody"></tbody>
+    </table>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="section-title">فواتير الفروع حسب البائعين</div>
+    <p class="page-note">الفواتير المعلقة بانتظار التحقق لا تُحسب هنا إلا بعد اعتمادها.</p>
+    <div id="branchInvoicesOverview" class="branch-overview-list"></div>
+  </div>
+</main>
+
+<main id="settingsPage" class="app hidden manager-only">
+  <div class="topbar">
+    <div>
+      <div class="brand">الإعدادات</div>
+      <p class="topbar-note">من هنا تتابع اسم الصيدلية والعملة وآخر وقت مزامنة وعدد العمليات التي تنتظر رفعًا للجوال.</p>
+    </div>
+    <div class="quick-links">
+      <button class="btn btn-light" type="button" onclick="showPage('dashboardPage')">رجوع</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">إعدادات النظام</div>
+    <div class="form-grid">
+      <div class="field"><label for="settingsPharmacyName">اسم الصيدلية</label><input id="settingsPharmacyName" type="text"></div>
+      <div class="field"><label for="settingsCurrency">العملة</label><input id="settingsCurrency" type="text"></div>
+      <div class="field"><label for="settingsLastSyncAt">آخر مزامنة</label><input id="settingsLastSyncAt" type="text" readonly></div>
+      <div class="field"><label for="settingsPendingOperations">عمليات معلقة</label><input id="settingsPendingOperations" type="text" readonly></div>
+    </div>
+    <button class="btn btn-primary" type="button" onclick="syncNow()">مزامنة الآن</button>
+  </div>
+</main>
+
+<script src="assets/js/mock-data.js?v=20260425-4"></script>
+<script src="assets/js/app.js?v=20260425-4"></script>
+</body>
+</html>

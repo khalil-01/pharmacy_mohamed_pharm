@@ -2,6 +2,38 @@
 
 declare(strict_types=1);
 
+$__pdoInstance = null;
+
+function getDbConnection(): PDO
+{
+    global $__pdoInstance;
+
+    if ($__pdoInstance !== null) {
+        return $__pdoInstance;
+    }
+
+    $config = require __DIR__ . '/config.php';
+
+    $dsn = sprintf(
+        'mysql:host=%s;dbname=%s;charset=%s',
+        $config['db_host'],
+        $config['db_name'],
+        $config['db_charset']
+    );
+
+    try {
+        $__pdoInstance = new PDO($dsn, $config['db_user'], $config['db_password'], [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]);
+    } catch (PDOException $e) {
+        sendDatabaseError('Database connection failed: ' . $e->getMessage());
+    }
+
+    return $__pdoInstance;
+}
+
 function sendDatabaseError(string $message, int $statusCode = 500): void
 {
     http_response_code($statusCode);
@@ -13,60 +45,27 @@ function sendDatabaseError(string $message, int $statusCode = 500): void
     exit;
 }
 
-function getMysqlBinaryPath(): string
-{
-    $matches = glob('C:/laragon/bin/mysql/*/bin/mysql.exe');
-
-    if (!$matches) {
-        sendDatabaseError('mysql.exe was not found in Laragon.');
-    }
-
-    return str_replace('\\', '/', $matches[0]);
-}
-
-function escapeSqlString(string $value): string
-{
-    return strtr($value, [
-        "\\" => "\\\\",
-        "'" => "\\'",
-        "\0" => "\\0",
-        "\n" => "\\n",
-        "\r" => "\\r",
-        '"' => '\"',
-        "\x1a" => "\\Z",
-    ]);
-}
-
 function runMysqlQuery(string $query, bool $allowEmptyResult = false): ?string
 {
-    $mysqlBinary = getMysqlBinaryPath();
-    $normalizedQuery = preg_replace('/\s+/', ' ', trim($query));
+    $pdo = getDbConnection();
 
-    $command = escapeshellarg($mysqlBinary)
-        . ' --default-character-set=utf8mb4 -u root -N -B -D pharmacy_mohamed_pharm -e '
-        . escapeshellarg($normalizedQuery ?: '')
-        . ' 2>&1';
+    try {
+        $stmt = $pdo->query($query);
+        $row = $stmt->fetch(PDO::FETCH_NUM);
 
-    $outputLines = [];
-    $exitCode = 0;
-
-    exec($command, $outputLines, $exitCode);
-
-    $trimmedOutput = trim(implode(PHP_EOL, $outputLines));
-
-    if ($exitCode !== 0 || str_contains($trimmedOutput, 'ERROR ')) {
-        sendDatabaseError('MySQL query failed: ' . $trimmedOutput);
-    }
-
-    if ($trimmedOutput === '') {
-        if ($allowEmptyResult) {
-            return null;
+        if ($row === false || $row[0] === null) {
+            if ($allowEmptyResult) {
+                return null;
+            }
+            sendDatabaseError('MySQL query returned no rows.');
         }
 
-        sendDatabaseError('MySQL query returned no rows.');
+        return (string) $row[0];
+    } catch (PDOException $e) {
+        sendDatabaseError('MySQL query failed: ' . $e->getMessage());
     }
 
-    return $trimmedOutput;
+    return null;
 }
 
 function runMysqlJsonQuery(string $query, bool $allowEmptyResult = false)
@@ -83,4 +82,11 @@ function runMysqlJsonQuery(string $query, bool $allowEmptyResult = false)
     }
 
     return $decoded;
+}
+
+function escapeSqlString(string $value): string
+{
+    $pdo = getDbConnection();
+    $quoted = $pdo->quote($value);
+    return substr($quoted, 1, -1);
 }

@@ -22,13 +22,31 @@ echo "=== Pharmacy Mohamed Pharm - Auto Deploy ===\n\n";
 // Config
 $repoZipUrl = 'https://github.com/khalil-01/pharmacy_mohamed_pharm/archive/refs/heads/devin/1779720983-hostinger-deploy.zip';
 $publicHtml = __DIR__;
+
+// Step 0: Enable maintenance mode
+echo "[0/5] Enabling maintenance mode...\n";
+$htaccessFile = $publicHtml . '/.htaccess';
+if (file_exists($htaccessFile)) {
+    $htaccess = file_get_contents($htaccessFile);
+    $htaccess = str_replace(
+        ['#RewriteCond %{REQUEST_URI} !^/maintenance\\.html$',
+         '#RewriteCond %{REQUEST_URI} !^/deploy\\.php$',
+         '#RewriteRule ^(.*)$ /maintenance.html [R=302,L]'],
+        ['RewriteCond %{REQUEST_URI} !^/maintenance\\.html$',
+         'RewriteCond %{REQUEST_URI} !^/deploy\\.php$',
+         'RewriteRule ^(.*)$ /maintenance.html [R=302,L]'],
+        $htaccess
+    );
+    file_put_contents($htaccessFile, $htaccess);
+    echo "  Maintenance mode ON\n";
+}
 $dbHost = 'localhost';
 $dbName = 'u385651399_pharm';
 $dbUser = 'u385651399_mohammed';
 $dbPass = '^5um>:+kzQJ>xJ8';
 
 // Step 1: Download repo ZIP from GitHub
-echo "[1/4] Downloading files from GitHub...\n";
+echo "[1/5] Downloading files from GitHub...\n";
 $zipFile = $publicHtml . '/repo_temp.zip';
 $zipData = file_get_contents($repoZipUrl);
 if ($zipData === false) {
@@ -38,7 +56,7 @@ file_put_contents($zipFile, $zipData);
 echo "  Downloaded " . strlen($zipData) . " bytes\n";
 
 // Step 2: Extract files
-echo "\n[2/4] Extracting files...\n";
+echo "\n[2/5] Extracting files...\n";
 $zip = new ZipArchive;
 $res = $zip->open($zipFile);
 if ($res !== TRUE) {
@@ -68,7 +86,7 @@ if (!is_dir($sourceDir)) {
 echo "  Source: $sourceDir\n";
 
 // Step 3: Copy files to public_html
-echo "\n[3/4] Copying files to public_html...\n";
+echo "\n[3/5] Copying files to public_html...\n";
 $fileCount = 0;
 
 function copyDirectory($src, $dst) {
@@ -113,7 +131,7 @@ function deleteDirectory($dir) {
 deleteDirectory($extractDir);
 
 // Step 4: Import SQL database
-echo "\n[4/4] Importing database...\n";
+echo "\n[4/5] Importing database...\n";
 $sqlFile = $publicHtml . '/database/pharmacy_mohamed_pharm.sql';
 if (!file_exists($sqlFile)) {
     echo "  WARNING: SQL file not found at $sqlFile\n";
@@ -182,6 +200,24 @@ if (!file_exists($sqlFile)) {
             echo "  Alternative import also failed: " . $e3->getMessage() . "\n";
         }
     }
+}
+
+// Step 5: Disable maintenance mode
+echo "\n[5/5] Disabling maintenance mode...\n";
+$htaccessFile = $publicHtml . '/.htaccess';
+if (file_exists($htaccessFile)) {
+    $htaccess = file_get_contents($htaccessFile);
+    $htaccess = str_replace(
+        ['RewriteCond %{REQUEST_URI} !^/maintenance\\.html$',
+         'RewriteCond %{REQUEST_URI} !^/deploy\\.php$',
+         'RewriteRule ^(.*)$ /maintenance.html [R=302,L]'],
+        ['#RewriteCond %{REQUEST_URI} !^/maintenance\\.html$',
+         '#RewriteCond %{REQUEST_URI} !^/deploy\\.php$',
+         '#RewriteRule ^(.*)$ /maintenance.html [R=302,L]'],
+        $htaccess
+    );
+    file_put_contents($htaccessFile, $htaccess);
+    echo "  Maintenance mode OFF\n";
 }
 
 echo "\n=== DEPLOYMENT COMPLETE ===\n";

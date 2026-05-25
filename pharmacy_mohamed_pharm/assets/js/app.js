@@ -52,7 +52,38 @@ const appState = {
   syncQueue: [],
 };
 
+function initThemeToggle() {
+  const saved = localStorage.getItem('pharmacy_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+  updateThemeIcon();
+
+  const btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      const current = document.documentElement.getAttribute('data-theme');
+      const isDark = current === 'dark' ||
+        (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const next = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('pharmacy_theme', next);
+      updateThemeIcon();
+    });
+  }
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const theme = document.documentElement.getAttribute('data-theme');
+  const isDark = theme === 'dark' ||
+    (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  btn.textContent = isDark ? '☀️' : '🌙';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  initThemeToggle();
   await loadBootstrapData();
   applyDataSeedResetIfNeeded();
   loadPersistedLocalData();
@@ -300,7 +331,7 @@ async function handleLoginSubmit(event) {
     loginUser(user);
   } catch (error) {
     const errorMessage = error?.code === 'API_UNAVAILABLE'
-      ? 'تعذر الاتصال بخدمة تسجيل الدخول. تأكد من تشغيل Laragon وقاعدة البيانات.'
+      ? 'تعذر الاتصال بالسيرفر. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.'
       : (error?.message || 'تعذر تسجيل الدخول.');
 
     setLoginError(errorMessage);

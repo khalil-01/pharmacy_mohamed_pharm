@@ -1,5 +1,12 @@
 RewriteEngine On
 
+# === MAINTENANCE MODE ===
+# To enable: remove the # from the 3 lines below
+# To disable: add # back to the 3 lines below
+#RewriteCond %{REQUEST_URI} !^/maintenance\.html$
+#RewriteCond %{REQUEST_URI} !^/deploy\.php$
+#RewriteRule ^(.*)$ /maintenance.html [R=302,L]
+
 # Force HTTPS
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

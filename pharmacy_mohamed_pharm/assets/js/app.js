@@ -16,6 +16,44 @@ const pages = [
   'settingsPage',
 ];
 
+const _lookupMaps = {
+  products: null,
+  users: null,
+  branches: null,
+  categories: null,
+  invoices: null,
+};
+
+function invalidateLookupMaps() {
+  _lookupMaps.products = null;
+  _lookupMaps.users = null;
+  _lookupMaps.branches = null;
+  _lookupMaps.categories = null;
+  _lookupMaps.invoices = null;
+}
+
+function _debounce(fn, delay) {
+  let timer = null;
+  return function () {
+    const context = this;
+    const args = arguments;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function () {
+      timer = null;
+      fn.apply(context, args);
+    }, delay);
+  };
+}
+
+let _persistTimer = null;
+function schedulePersist() {
+  if (_persistTimer) return;
+  _persistTimer = setTimeout(function () {
+    _persistTimer = null;
+    _doPersistAppData();
+  }, 300);
+}
+
 const roleLabels = {
   manager: 'مدير',
   stock: 'مخزن',
@@ -52,15 +90,41 @@ const appState = {
   syncQueue: [],
 };
 
+function initThemeToggle() {
+  const saved = localStorage.getItem('pharmacy_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+  updateThemeIcon();
+
+  const btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      const current = document.documentElement.getAttribute('data-theme');
+      const isDark = current === 'dark' ||
+        (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const next = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('pharmacy_theme', next);
+      updateThemeIcon();
+    });
+  }
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const theme = document.documentElement.getAttribute('data-theme');
+  const isDark = theme === 'dark' ||
+    (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  btn.textContent = isDark ? '☀️' : '🌙';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  initThemeToggle();
   await loadBootstrapData();
   applyDataSeedResetIfNeeded();
   loadPersistedLocalData();
-  normalizeProductsCollection();
-  normalizeInvoicesCollection();
-  normalizeDebtsCollection();
-  normalizeWarehouseOrdersCollection();
-  normalizeNotificationsCollection();
   persistAppData();
   bindStaticEvents();
   renderBranding();
@@ -152,7 +216,7 @@ function restoreCurrentPage() {
 
 function bindStaticEvents() {
   addEvent('loginForm', 'submit', handleLoginSubmit);
-  addEvent('saleProductSearchInput', 'input', renderSaleProducts);
+  addEvent('saleProductSearchInput', 'input', _debounce(renderSaleProducts, 200));
   addEvent('saleProductSelect', 'change', updateSalePricingFields);
   addEvent('saleScopeTypeSelect', 'change', handleManagerSaleScopeChange);
   addEvent('saleScopeBranchSelect', 'change', handleManagerSaleScopeChange);
@@ -162,12 +226,12 @@ function bindStaticEvents() {
   addEvent('saleCustomerNameInput', 'input', renderCurrentSaleMeta);
   addEvent('saleCustomerPhoneInput', 'input', renderCurrentSaleMeta);
   addEvent('salePaymentMethodSelect', 'change', renderCurrentSaleMeta);
-  addEvent('stockSearchInput', 'input', renderStockTable);
-  addEvent('productsSearchInput', 'input', renderProductsTable);
+  addEvent('stockSearchInput', 'input', _debounce(renderStockTable, 200));
+  addEvent('productsSearchInput', 'input', _debounce(renderProductsTable, 200));
   addEvent('stockEntryCategorySelect', 'change', renderStockEntryProducts);
   addEvent('stockEntryDestinationTypeSelect', 'change', renderStockEntryDestinations);
   addEvent('stockEntryDestinationSelect', 'change', renderCurrentWarehouseOrderMeta);
-  addEvent('stockEntryProductSearchInput', 'input', renderStockEntryProducts);
+  addEvent('stockEntryProductSearchInput', 'input', _debounce(renderStockEntryProducts, 200));
   addEvent('stockEntryProductSelect', 'change', updateWarehouseOrderProductDefaults);
   addEvent('stockOrderWholesaleCustomerInput', 'input', renderCurrentWarehouseOrderMeta);
   addEvent('stockOrderWholesalePhoneInput', 'input', renderCurrentWarehouseOrderMeta);
@@ -175,11 +239,11 @@ function bindStaticEvents() {
   addEvent('stockOrderReferenceInput', 'input', renderCurrentWarehouseOrderMeta);
   addEvent('stockOrderQuantityInput', 'input', updateWarehouseOrderProductDefaults);
   addEvent('stockOrderPriceInput', 'input', updateWarehouseOrderProductDefaults);
-  addEvent('stockOrdersSearchInput', 'input', renderWarehouseOrdersList);
+  addEvent('stockOrdersSearchInput', 'input', _debounce(renderWarehouseOrdersList, 200));
   addEvent('stockOrdersStatusFilter', 'change', renderWarehouseOrdersList);
-  addEvent('invoiceSearchInput', 'input', renderInvoicesList);
-  addEvent('debtSearchInput', 'input', renderDebtsTable);
-  addEvent('verificationSearchInput', 'input', renderVerificationTable);
+  addEvent('invoiceSearchInput', 'input', _debounce(renderInvoicesList, 200));
+  addEvent('debtSearchInput', 'input', _debounce(renderDebtsTable, 200));
+  addEvent('verificationSearchInput', 'input', _debounce(renderVerificationTable, 200));
   addEvent('settingsPharmacyName', 'change', handleSettingsChange);
   addEvent('settingsCurrency', 'change', handleSettingsChange);
 }
@@ -228,7 +292,7 @@ function showPage(pageId) {
   if (targetPage === 'settingsPage') renderSettings();
   renderGlobalNotificationBanner();
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo(0, 0);
 }
 
 function getActivePageId() {
@@ -300,7 +364,7 @@ async function handleLoginSubmit(event) {
     loginUser(user);
   } catch (error) {
     const errorMessage = error?.code === 'API_UNAVAILABLE'
-      ? 'تعذر الاتصال بخدمة تسجيل الدخول. تأكد من تشغيل Laragon وقاعدة البيانات.'
+      ? 'تعذر الاتصال بالسيرفر. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.'
       : (error?.message || 'تعذر تسجيل الدخول.');
 
     setLoginError(errorMessage);
@@ -381,23 +445,7 @@ function initializeAuthenticatedApp() {
   updateSessionBadges();
   renderShellHeader();
   renderGlobalNotificationBanner();
-  renderManagerSaleControls();
   renderBranding();
-  renderSettings();
-  renderDashboardStats();
-  renderInvoicesList();
-  renderNotificationsList();
-  renderVerificationTable();
-  renderInvoiceDetails();
-  renderDebtsTable();
-  renderStockTable();
-  renderProductsTable();
-  renderUsersTable();
-  renderBranchesTable();
-  renderSaleProducts();
-  renderCurrentSaleInvoice();
-  renderCurrentSaleMeta();
-  renderStockEntryCategories();
   setSaleSaveMessage('');
   setLoginLoading(false);
 
@@ -710,6 +758,7 @@ async function loadBootstrapData() {
     if (Array.isArray(payload.debts)) {
       mockData.debts = payload.debts;
     }
+    invalidateLookupMaps();
   } catch (error) {
     console.warn('Bootstrap API unavailable, falling back to local data.', error);
   }
@@ -805,6 +854,10 @@ function loadPersistedLocalData() {
 }
 
 function persistAppData() {
+  schedulePersist();
+}
+
+function _doPersistAppData() {
   try {
     window.localStorage.setItem(storageKeys.products, JSON.stringify(mockData.products));
     window.localStorage.setItem(storageKeys.invoices, JSON.stringify(mockData.salesInvoices));
@@ -944,10 +997,12 @@ async function loginViaApi(username, password) {
 function normalizeProductsCollection() {
   if (!Array.isArray(mockData.products)) {
     mockData.products = [];
+    _lookupMaps.products = null;
     return;
   }
 
   mockData.products = mockData.products.map(normalizeProductRecord);
+  _lookupMaps.products = null;
 }
 
 function normalizeProductRecord(product) {
@@ -970,6 +1025,7 @@ function normalizeProductRecord(product) {
 }
 
 function normalizeInvoicesCollection() {
+  _lookupMaps.invoices = null;
   if (!Array.isArray(mockData.salesInvoices)) {
     mockData.salesInvoices = [];
     return;
@@ -3098,23 +3154,44 @@ function getInvoiceCustomerPhone(invoice) {
 }
 
 function getBranchById(branchId) {
-  return mockData.branches.find(branch => branch.id === branchId) || null;
+  if (!_lookupMaps.branches) {
+    _lookupMaps.branches = new Map();
+    (mockData.branches || []).forEach(function (b) { _lookupMaps.branches.set(b.id, b); });
+  }
+  return _lookupMaps.branches.get(branchId) || null;
 }
 
 function getUserById(userId) {
-  return mockData.users.find(user => user.id === userId) || null;
+  if (!_lookupMaps.users) {
+    _lookupMaps.users = new Map();
+    (mockData.users || []).forEach(function (u) { _lookupMaps.users.set(u.id, u); });
+  }
+  return _lookupMaps.users.get(userId) || null;
 }
 
 function getProductById(productId) {
-  return mockData.products.find(product => product.id === productId) || null;
+  if (!_lookupMaps.products) {
+    _lookupMaps.products = new Map();
+    (mockData.products || []).forEach(function (p) { _lookupMaps.products.set(p.id, p); });
+  }
+  return _lookupMaps.products.get(productId) || null;
 }
 
 function getInvoiceById(invoiceId) {
-  return mockData.salesInvoices.find(invoice => invoice.id === invoiceId) || null;
+  if (!_lookupMaps.invoices) {
+    _lookupMaps.invoices = new Map();
+    (mockData.salesInvoices || []).forEach(function (i) { _lookupMaps.invoices.set(i.id, i); });
+  }
+  return _lookupMaps.invoices.get(invoiceId) || null;
 }
 
 function getCategoryName(categoryId) {
-  return mockData.categories.find(category => category.id === categoryId)?.name || '-';
+  if (!_lookupMaps.categories) {
+    _lookupMaps.categories = new Map();
+    (mockData.categories || []).forEach(function (c) { _lookupMaps.categories.set(c.id, c); });
+  }
+  var cat = _lookupMaps.categories.get(categoryId);
+  return cat ? cat.name : '-';
 }
 
 function getTodayDate() {
